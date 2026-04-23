@@ -1,0 +1,96 @@
+name: user-story-readiness-single
+description: |
+  Review one local markdown user story for implementation readiness.
+  The workflow reads `user-stories/*.md`, writes deterministic review artifacts,
+  and stores the verdict under `.archon/story-status/<story-number>/`.
+provider: claude
+interactive: false
+
+nodes:
+  - id: parse-story
+    bash: |
+      set -euo pipefail
+
+      mkdir -p "$ARTIFACTS_DIR"
+
+      story_num="$(
+        printf '%s\n' "$ARGUMENTS" |
+          grep -oiE 'stories/[0-9]+|story[[:space:]#-]*[0-9]+|#[0-9]+|[0-9]+' |
+          head -1 |
+          grep -oE '[0-9]+'
+      )"
+
+      if [[ -z "${story_num:-}" ]]; then
+        echo "No story number found in: $ARGUMENTS" >&2
+        exit 1
+      fi
+
+      story_path="$(find user-stories -maxdepth 1 -type f | sort | grep "/${story_num}[-_]" | head -1 || true)"
+
+      if [[ -z "$story_path" || ! -f "$story_path" ]]; then
+        echo "Could not find local story file for story #$story_num under user-stories/." >&2
+        exit 1
+      fi
+
+      printf '%s\n' "$story_num" > "$ARTIFACTS_DIR/story-number"
+      printf '%s\n' "$story_path" > "$ARTIFACTS_DIR/story-path"
+      cp "$story_path" "$ARTIFACTS_DIR/story.md"
+
+      cat "$ARTIFACTS_DIR/story.md"
+    timeout: 10000
+
+  - id: run-readiness
+    bash: |
+      set -euo pipefail
+
+      story_num="$(cat "$ARTIFACTS_DIR/story-number")"
+      ./.archon/bin/run-story-readiness.sh "$PWD" "$story_num" "$ARTIFACTS_DIR"
+    depends_on: [parse-story]
+    timeout: 3600000
+
+  - id: review-gate
+    bash: |
+      set -euo pipefail
+
+      for file in story-review.md story-review.json story-contract.md definition-of-done.md; do
+        if [[ ! -s "$ARTIFACTS_DIR/$file" ]]; then
+          echo "Missing review artifact: $file" >&2
+          exit 1
+        fi
+      done
+
+      jq -e '.verdict == "ready-for-dev" or .verdict == "needs-clarification"' "$ARTIFACTS_DIR/story-review.json" >/dev/null
+      jq -e '.story_number | type == "number"' "$ARTIFACTS_DIR/story-review.json" >/dev/null
+      echo "Review artifacts validated."
+    depends_on: [run-readiness]
+    timeout: 10000
+
+  - id: persist-verdict
+    bash: |
+      set -euo pipefail
+
+      story_num="$(cat "$ARTIFACTS_DIR/story-number")"
+      status_dir=".archon/story-status/$story_num"
+      mkdir -p "$status_dir"
+
+      cp "$ARTIFACTS_DIR/story.md" "$status_dir/story.md"
+      cp "$ARTIFACTS_DIR/story-review.md" "$status_dir/story-review.md"
+      cp "$ARTIFACTS_DIR/story-review.json" "$status_dir/story-review.json"
+      cp "$ARTIFACTS_DIR/story-contract.md" "$status_dir/story-contract.md"
+      cp "$ARTIFACTS_DIR/definition-of-done.md" "$status_dir/definition-of-done.md"
+
+      jq -r '.verdict' "$status_dir/story-review.json" > "$status_dir/verdict.txt"
+
+      {
+        echo "# Local Story Readiness"
+        echo
+        echo "Story: #$story_num"
+        echo "Verdict: $(cat "$status_dir/verdict.txt")"
+        echo
+        cat "$status_dir/story-review.md"
+      } > "$status_dir/summary.md"
+
+      cat "$status_dir/summary.md"
+    depends_on: [review-gate]
+    timeout: 10000
+

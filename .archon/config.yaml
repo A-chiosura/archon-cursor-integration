@@ -1,0 +1,8 @@
+defaultAssistant: claude
+
+assistants:
+  claude:
+    claudeBinaryPath: /Users/thomasfey-grytnes/archon-sequential-test/.archon/bin/claude-omlx-wrapper.sh
+
+worktree:
+  baseBranch: main

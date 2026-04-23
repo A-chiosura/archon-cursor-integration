@@ -1,0 +1,112 @@
+name: user-story-readiness-review
+description: |
+  Deterministically run local story-readiness review sequentially for one or more
+  local markdown stories under `user-stories/`. This workflow never runs checks
+  in parallel. It stores per-story results under `.archon/story-status/`.
+provider: claude
+interactive: false
+
+nodes:
+  - id: build-queue
+    bash: |
+      set -euo pipefail
+
+      mkdir -p "$ARTIFACTS_DIR"
+
+      explicit_numbers="$(
+        printf '%s\n' "${ARGUMENTS:-}" |
+          grep -oE 'stories/[0-9]+|story[[:space:]#-]*[0-9]+|#[0-9]+|[0-9]+' |
+          grep -oE '[0-9]+' |
+          sort -n |
+          uniq || true
+      )"
+
+      if [[ -n "$explicit_numbers" ]]; then
+        printf '%s\n' "$explicit_numbers" > "$ARTIFACTS_DIR/queue.txt"
+      else
+        find user-stories -maxdepth 1 -type f | sort |
+          sed -E 's#.*/([0-9]+)[-_].*#\1#' > "$ARTIFACTS_DIR/queue.txt"
+      fi
+
+      if [[ ! -s "$ARTIFACTS_DIR/queue.txt" ]]; then
+        echo "No local stories found to review." >&2
+        exit 1
+      fi
+
+      {
+        echo "# Local Story Queue"
+        echo
+        nl -ba "$ARTIFACTS_DIR/queue.txt" | sed 's/^/story /'
+      } > "$ARTIFACTS_DIR/queue.md"
+
+      cat "$ARTIFACTS_DIR/queue.md"
+    timeout: 10000
+
+  - id: run-queue
+    bash: |
+      set -euo pipefail
+
+      mkdir -p "$ARTIFACTS_DIR" .archon/story-status
+      : > "$ARTIFACTS_DIR/run-results.tsv"
+
+      while IFS= read -r story_num; do
+        [[ -z "$story_num" ]] && continue
+
+        printf 'story\t%s\tstatus\tstarted\n' "$story_num" | tee -a "$ARTIFACTS_DIR/run-results.tsv"
+
+        if ./.archon/bin/run-story-readiness.sh "$PWD" "$story_num" "$ARTIFACTS_DIR/story-$story_num"; then
+          verdict="$(cat ".archon/story-status/${story_num}/verdict.txt")"
+          printf 'story\t%s\tstatus\tcompleted\tverdict\t%s\n' "$story_num" "$verdict" | tee -a "$ARTIFACTS_DIR/run-results.tsv"
+        else
+          printf 'story\t%s\tstatus\tfailed\tverdict\tfailed\n' "$story_num" | tee -a "$ARTIFACTS_DIR/run-results.tsv"
+          echo "Sequential batch stopped because story #$story_num failed." >&2
+          exit 1
+        fi
+      done < "$ARTIFACTS_DIR/queue.txt"
+
+      cat "$ARTIFACTS_DIR/run-results.tsv"
+    depends_on: [build-queue]
+    timeout: 7200000
+
+  - id: summarize-results
+    bash: |
+      set -euo pipefail
+
+      mkdir -p "$ARTIFACTS_DIR"
+
+      jq -n '
+        [
+          inputs
+          | {
+              story_number: .story_number,
+              story_title: .story_title,
+              verdict: .verdict,
+              summary: .summary,
+              next_step: .next_step
+            }
+        ]
+      ' .archon/story-status/*/story-review.json > "$ARTIFACTS_DIR/readiness-review.json"
+
+      {
+        echo "# Local Story Readiness Review"
+        echo
+        echo "The stories below were processed sequentially."
+        echo
+        echo "| Story | Verdict | Title |"
+        echo "| ---: | --- | --- |"
+        jq -r '.[] | "| #\(.story_number) | \(.verdict) | \(.story_title | gsub("\\|"; "\\\\|")) |"' "$ARTIFACTS_DIR/readiness-review.json"
+        echo
+        echo "## Execution Log"
+        echo
+        echo "| Kind | Story | Status | Verdict |"
+        echo "| --- | ---: | --- | --- |"
+        awk -F '\t' '
+          $1 == "story" && $4 == "started" { printf("| story | #%s | started | - |\n", $2) }
+          $1 == "story" && $4 == "completed" { printf("| story | #%s | completed | %s |\n", $2, $6) }
+          $1 == "story" && $4 == "failed" { printf("| story | #%s | failed | failed |\n", $2) }
+        ' "$ARTIFACTS_DIR/run-results.tsv"
+      } > "$ARTIFACTS_DIR/readiness-review.md"
+
+      cat "$ARTIFACTS_DIR/readiness-review.md"
+    depends_on: [run-queue]
+    timeout: 10000
