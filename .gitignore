@@ -1,1 +1,8 @@
 .DS_Store
+
+# Archon runtime / secrets
+.archon/.env
+.archon/logs/
+.archon/artifacts/
+.archon/story-status/
+.cursor/workflow-phase

@@ -1,0 +1,14 @@
+name: cursor-smoke
+description: Minimal smoke test for Cursor integration in Archon (bash executor)
+provider: codex
+interactive: false
+
+nodes:
+  - id: smoke
+    bash: ./.archon/bin/run-cursor-step.sh smoke "$ARGUMENTS"
+    timeout: 900000
+
+  - id: verify-smoke
+    bash: ./.archon/bin/verify-gate.sh smoke
+    depends_on: [smoke]
+    timeout: 60000
