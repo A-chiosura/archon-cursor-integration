@@ -11,3 +11,4 @@
 .archon/bin/omlx_structured_chat.py
 .archon/bin/validate-story-readiness.sh
 
+node_modules/

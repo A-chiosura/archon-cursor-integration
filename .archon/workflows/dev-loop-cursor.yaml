@@ -9,12 +9,21 @@ nodes:
     bash: ./.archon/bin/verify-gate.sh pre "$ARGUMENTS"
     timeout: 30000
 
-  - id: tdd
-    bash: |
-      set -euo pipefail
-      echo "tdd" > .cursor/workflow-phase
-      ./.archon/bin/run-cursor-step.sh tdd "$ARGUMENTS"
+  - id: phase-tdd
+    bash: echo "tdd" > .cursor/workflow-phase
     depends_on: [gate-pre]
+    timeout: 30000
+
+  - id: tdd
+    prompt: |
+      Phase: TDD only for: $ARGUMENTS
+      Rules:
+      - Write failing tests first
+      - Run tests and confirm they fail for the right reason
+      - Commit with message starting with 'test:'
+      - Do NOT implement production code beyond tests
+      - Do NOT push
+    depends_on: [phase-tdd]
     timeout: 1800000
 
   - id: verify-tdd
@@ -22,12 +31,20 @@ nodes:
     depends_on: [tdd]
     timeout: 120000
 
-  - id: implement
-    bash: |
-      set -euo pipefail
-      echo "implement" > .cursor/workflow-phase
-      ./.archon/bin/run-cursor-step.sh implement "$ARGUMENTS"
+  - id: phase-implement
+    bash: echo "implement" > .cursor/workflow-phase
     depends_on: [verify-tdd]
+    timeout: 30000
+
+  - id: implement
+    prompt: |
+      Phase: Implement for: $ARGUMENTS
+      Rules:
+      - Make tests pass with minimal production code
+      - Run full test suite
+      - Commit with message starting with 'feat:' or 'fix:'
+      - Do NOT push
+    depends_on: [phase-implement]
     timeout: 3600000
 
   - id: verify-implement
@@ -35,12 +52,20 @@ nodes:
     depends_on: [implement]
     timeout: 120000
 
-  - id: refactor
-    bash: |
-      set -euo pipefail
-      echo "refactor" > .cursor/workflow-phase
-      ./.archon/bin/run-cursor-step.sh refactor "$ARGUMENTS"
+  - id: phase-refactor
+    bash: echo "refactor" > .cursor/workflow-phase
     depends_on: [verify-implement]
+    timeout: 30000
+
+  - id: refactor
+    prompt: |
+      Phase: Refactor for: $ARGUMENTS
+      Rules:
+      - Improve code quality without changing behavior
+      - Keep all tests green after each change
+      - Commit with message starting with 'refactor:'
+      - Do NOT push
+    depends_on: [phase-refactor]
     timeout: 1800000
 
   - id: verify-refactor
@@ -48,12 +73,19 @@ nodes:
     depends_on: [refactor]
     timeout: 120000
 
-  - id: open-pr
-    bash: |
-      set -euo pipefail
-      echo "pr" > .cursor/workflow-phase
-      ./.archon/bin/run-cursor-step.sh pr "$ARGUMENTS"
+  - id: phase-pr
+    bash: echo "pr" > .cursor/workflow-phase
     depends_on: [verify-refactor]
+    timeout: 30000
+
+  - id: open-pr
+    prompt: |
+      Phase: Pull request for: $ARGUMENTS
+      Rules:
+      - Push current branch
+      - Open PR to main with gh
+      - Include test evidence in PR body
+    depends_on: [phase-pr]
     timeout: 900000
 
   - id: verify-pr
