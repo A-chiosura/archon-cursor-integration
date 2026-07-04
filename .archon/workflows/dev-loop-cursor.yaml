@@ -1,9 +1,7 @@
 name: dev-loop-cursor
 description: |
   Governed TDD → implement → refactor → PR pipeline.
-  Uses Cursor CLI inside bash nodes (works with stock Archon v0.5.0).
-  After building archon-cursor, you may set provider: cursor for AI nodes.
-provider: codex
+provider: cursor
 interactive: false
 
 nodes:
