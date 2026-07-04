@@ -1,11 +1,17 @@
 name: cursor-smoke
-description: Minimal smoke test for Cursor integration in Archon (bash executor)
-provider: codex
+description: Minimal smoke test for native Cursor provider in Archon
+provider: cursor
 interactive: false
 
 nodes:
   - id: smoke
-    bash: ./.archon/bin/run-cursor-step.sh smoke "$ARGUMENTS"
+    prompt: |
+      You are running an Archon workflow smoke test in the repository root.
+      Task: $ARGUMENTS
+      Requirements:
+      - Create or update tests/smoke.test.ts according to the task
+      - Commit your changes locally with a clear message
+      - Do NOT push to remote
     timeout: 900000
 
   - id: verify-smoke

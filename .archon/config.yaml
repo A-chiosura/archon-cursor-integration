@@ -1,6 +1,10 @@
 defaultAssistant: claude
 
 assistants:
+  cursor:
+    trustWorkspace: true
+    forceAllowTools: true
+    approveMcps: true
   claude:
     claudeBinaryPath: /Users/thomasfey-grytnes/archon-sequential-test/.archon/bin/claude-omlx-wrapper.sh
 
