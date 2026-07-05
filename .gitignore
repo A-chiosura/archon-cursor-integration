@@ -5,9 +5,10 @@
 .archon/logs/
 .archon/artifacts/
 .archon/story-status/
+.archon/cursor-sessions/
 .cursor/workflow-phase
 
-# Local MLX / experiment scripts (not part of Tier C pilot)
+# Local MLX / experiment scripts (not part of Tier C)
 .archon/bin/omlx_structured_chat.py
 .archon/bin/validate-story-readiness.sh
 

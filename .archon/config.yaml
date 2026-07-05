@@ -1,12 +1,24 @@
-defaultAssistant: claude
+defaultAssistant: cursor
 
 assistants:
   cursor:
+    cursorBinaryPath: /Users/thomasfey-grytnes/.local/bin/agent
     trustWorkspace: true
     forceAllowTools: true
     approveMcps: true
-  claude:
-    claudeBinaryPath: /Users/thomasfey-grytnes/Projects/archon-cursor-integration/.archon/bin/claude-omlx-wrapper.sh
+    sandbox: disabled
+    outputFormat: stream-json
+
+tiers:
+  small:
+    provider: cursor
+    model: auto
+  medium:
+    provider: cursor
+    model: auto
+  large:
+    provider: cursor
+    model: auto
 
 worktree:
   baseBranch: main
