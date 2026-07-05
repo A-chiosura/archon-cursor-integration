@@ -11,4 +11,8 @@ describe('Archon smoke', () => {
   it('passes for dev-loop verify gates', () => {
     expect(true).toBe(true);
   });
+
+  it('fails intentionally for smoke workflow verification', () => {
+    expect(true).toBe(false);
+  });
 });
