@@ -6,7 +6,7 @@ assistants:
     forceAllowTools: true
     approveMcps: true
   claude:
-    claudeBinaryPath: /Users/thomasfey-grytnes/archon-sequential-test/.archon/bin/claude-omlx-wrapper.sh
+    claudeBinaryPath: /Users/thomasfey-grytnes/Projects/archon-cursor-integration/.archon/bin/claude-omlx-wrapper.sh
 
 worktree:
   baseBranch: main
